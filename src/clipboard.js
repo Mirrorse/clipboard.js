@@ -4,7 +4,7 @@ import listen from 'good-listener';
 
 /**
  * Base class which takes one or more elements, adds event listeners to them,
- * and instantiates a new `ClipboardAction` on each click.
+ * and instantiates a new `ClipboardAction` on each targetEvent.
  */
 class Clipboard extends Emitter {
     /**
@@ -15,7 +15,7 @@ class Clipboard extends Emitter {
         super();
 
         this.resolveOptions(options);
-        this.listenClick(trigger);
+        this.listenEvent(trigger);
     }
 
     /**
@@ -24,37 +24,60 @@ class Clipboard extends Emitter {
      * @param {Object} options
      */
     resolveOptions(options = {}) {
-        this.action = (typeof options.action === 'function') ? options.action : this.defaultAction;
-        this.target = (typeof options.target === 'function') ? options.target : this.defaultTarget;
-        this.text   = (typeof options.text   === 'function') ? options.text   : this.defaultText;
+        this.action         = (typeof options.action === 'function') ? options.action       : this.defaultAction;
+        this.target         = (typeof options.target === 'function') ? options.target       : this.defaultTarget;
+        this.text           = (typeof options.text   === 'function') ? options.text         : this.defaultText;
+        this.targetEvent    = (typeof options.targetEvent   === 'string') ? options.targetEvent  : this.defaultTargetEvent;
+        this.eventFilter    = (typeof options.eventFilter   === 'function') ? options.eventFilter  : this.defaultEventFilter;
     }
 
     /**
      * Adds a click event listener to the passed trigger.
      * @param {String|HTMLElement|HTMLCollection|NodeList} trigger
      */
-    listenClick(trigger) {
-        this.listener = listen(trigger, 'click', (e) => this.onClick(e));
+    listenEvent(trigger) {
+        this.listener = listen(trigger, this.targetEvent, this.onEvent.bind(this));
     }
 
     /**
      * Defines a new `ClipboardAction` on each click event.
      * @param {Event} e
      */
-    onClick(e) {
-        let trigger = e.delegateTarget || e.currentTarget;
+    onEvent(e) {
+        if (this.eventFilter(e)) {
+            let trigger = e.delegateTarget || e.currentTarget;
 
-        if (this.clipboardAction) {
-            this.clipboardAction = null;
+            if (this.clipboardAction) {
+                this.clipboardAction = null;
+            }
+
+            this.clipboardAction = new ClipboardAction({
+                action      : this.action(trigger),
+                target      : this.target(trigger),
+                targetEvent : this.targetEvent,
+                text        : this.text(trigger),
+                trigger     : trigger,
+                emitter     : this
+            });
         }
+    }
 
-        this.clipboardAction = new ClipboardAction({
-            action  : this.action(trigger),
-            target  : this.target(trigger),
-            text    : this.text(trigger),
-            trigger : trigger,
-            emitter : this
-        });
+    /**
+     * Default `event` for target.
+     * @param {String} event
+     */
+    get defaultTargetEvent () {
+        return 'click'; 
+
+    }
+
+    /**
+     * Default `eventFilter` for target event.
+     * @param {Function} filter function
+     */
+    get defaultEventFilter () {
+        //Default is all
+        return x => true;
     }
 
     /**

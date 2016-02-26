@@ -18,11 +18,12 @@ class ClipboardAction {
      * @param {Object} options
      */
     resolveOptions(options = {}) {
-        this.action  = options.action;
-        this.emitter = options.emitter;
-        this.target  = options.target;
-        this.text    = options.text;
-        this.trigger = options.trigger;
+        this.action         = options.action;
+        this.emitter        = options.emitter;
+        this.target         = options.target;
+        this.targetEvent    = options.targetEvent;
+        this.text           = options.text;
+        this.trigger        = options.trigger;
 
         this.selectedText = '';
     }
@@ -55,7 +56,9 @@ class ClipboardAction {
 
         this.removeFake();
 
-        this.fakeHandler = document.body.addEventListener('click', () => this.removeFake());
+        this.fakeHandler = document.body.addEventListener(this.targetEvent, () => {
+            this.removeFake();
+        });
 
         this.fakeElem = document.createElement('textarea');
         // Prevent zooming on iOS
@@ -79,12 +82,12 @@ class ClipboardAction {
     }
 
     /**
-     * Only removes the fake element after another click event, that way
+     * Only removes the fake element after another targetEvent event, that way
      * a user can hit `Ctrl+C` to copy because selection still exists.
      */
     removeFake() {
         if (this.fakeHandler) {
-            document.body.removeEventListener('click');
+            document.body.removeEventListener(this.targetEvent);
             this.fakeHandler = null;
         }
 

@@ -427,6 +427,7 @@ module.exports = E;
             this.action = options.action;
             this.emitter = options.emitter;
             this.target = options.target;
+            this.targetEvent = options.targetEvent;
             this.text = options.text;
             this.trigger = options.trigger;
 
@@ -452,8 +453,8 @@ module.exports = E;
 
             this.removeFake();
 
-            this.fakeHandler = document.body.addEventListener('click', function () {
-                return _this.removeFake();
+            this.fakeHandler = document.body.addEventListener(this.targetEvent, function () {
+                _this.removeFake();
             });
 
             this.fakeElem = document.createElement('textarea');
@@ -464,7 +465,7 @@ module.exports = E;
             this.fakeElem.style.padding = '0';
             this.fakeElem.style.margin = '0';
             // Move element out of screen horizontally
-            this.fakeElem.style.position = 'absolute';
+            this.fakeElem.style.position = 'fixed';
             this.fakeElem.style[isRTL ? 'right' : 'left'] = '-9999px';
             // Move element to the same position vertically
             this.fakeElem.style.top = (window.pageYOffset || document.documentElement.scrollTop) + 'px';
@@ -479,7 +480,7 @@ module.exports = E;
 
         ClipboardAction.prototype.removeFake = function removeFake() {
             if (this.fakeHandler) {
-                document.body.removeEventListener('click');
+                document.body.removeEventListener(this.targetEvent);
                 this.fakeHandler = null;
             }
 
@@ -605,6 +606,24 @@ module.exports = E;
         }
     }
 
+    var _createClass = function () {
+        function defineProperties(target, props) {
+            for (var i = 0; i < props.length; i++) {
+                var descriptor = props[i];
+                descriptor.enumerable = descriptor.enumerable || false;
+                descriptor.configurable = true;
+                if ("value" in descriptor) descriptor.writable = true;
+                Object.defineProperty(target, descriptor.key, descriptor);
+            }
+        }
+
+        return function (Constructor, protoProps, staticProps) {
+            if (protoProps) defineProperties(Constructor.prototype, protoProps);
+            if (staticProps) defineProperties(Constructor, staticProps);
+            return Constructor;
+        };
+    }();
+
     function _possibleConstructorReturn(self, call) {
         if (!self) {
             throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
@@ -643,7 +662,7 @@ module.exports = E;
             var _this = _possibleConstructorReturn(this, _Emitter.call(this));
 
             _this.resolveOptions(options);
-            _this.listenClick(trigger);
+            _this.listenEvent(trigger);
             return _this;
         }
 
@@ -660,30 +679,31 @@ module.exports = E;
             this.action = typeof options.action === 'function' ? options.action : this.defaultAction;
             this.target = typeof options.target === 'function' ? options.target : this.defaultTarget;
             this.text = typeof options.text === 'function' ? options.text : this.defaultText;
+            this.targetEvent = typeof options.targetEvent === 'string' ? options.targetEvent : this.defaultTargetEvent;
+            this.eventFilter = typeof options.eventFilter === 'function' ? options.eventFilter : this.defaultEventFilter;
         };
 
-        Clipboard.prototype.listenClick = function listenClick(trigger) {
-            var _this2 = this;
-
-            this.listener = (0, _goodListener2.default)(trigger, 'click', function (e) {
-                return _this2.onClick(e);
-            });
+        Clipboard.prototype.listenEvent = function listenEvent(trigger) {
+            this.listener = (0, _goodListener2.default)(trigger, this.targetEvent, this.onEvent.bind(this));
         };
 
-        Clipboard.prototype.onClick = function onClick(e) {
-            var trigger = e.delegateTarget || e.currentTarget;
+        Clipboard.prototype.onEvent = function onEvent(e) {
+            if (this.eventFilter(e)) {
+                var trigger = e.delegateTarget || e.currentTarget;
 
-            if (this.clipboardAction) {
-                this.clipboardAction = null;
+                if (this.clipboardAction) {
+                    this.clipboardAction = null;
+                }
+
+                this.clipboardAction = new _clipboardAction2.default({
+                    action: this.action(trigger),
+                    target: this.target(trigger),
+                    targetEvent: this.targetEvent,
+                    text: this.text(trigger),
+                    trigger: trigger,
+                    emitter: this
+                });
             }
-
-            this.clipboardAction = new _clipboardAction2.default({
-                action: this.action(trigger),
-                target: this.target(trigger),
-                text: this.text(trigger),
-                trigger: trigger,
-                emitter: this
-            });
         };
 
         Clipboard.prototype.defaultAction = function defaultAction(trigger) {
@@ -710,6 +730,21 @@ module.exports = E;
                 this.clipboardAction = null;
             }
         };
+
+        _createClass(Clipboard, [{
+            key: 'defaultTargetEvent',
+            get: function get() {
+                return 'click';
+            }
+        }, {
+            key: 'defaultEventFilter',
+            get: function get() {
+                //Default is all
+                return function (x) {
+                    return true;
+                };
+            }
+        }]);
 
         return Clipboard;
     }(_tinyEmitter2.default);
